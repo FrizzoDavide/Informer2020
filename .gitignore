@@ -1,0 +1,4 @@
+# gitignore file for the Informer2020 submodule
+
+# Ignore the pycache files
+__pycache__/

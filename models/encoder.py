@@ -13,7 +13,10 @@ class ConvLayer(nn.Module):
                                   padding_mode='circular')
         self.norm = nn.BatchNorm1d(c_in)
         self.activation = nn.ELU()
-        self.maxPool = nn.MaxPool1d(kernel_size=3, stride=2, padding=1)
+        ###############
+        # N.B. Change the stride from 2 to 1 to maintain the same length
+        ###############
+        self.maxPool = nn.MaxPool1d(kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
         x = self.downConv(x.permute(0, 2, 1))
@@ -66,6 +69,7 @@ class Encoder(nn.Module):
         if self.conv_layers is not None:
             for attn_layer, conv_layer in zip(self.attn_layers, self.conv_layers):
                 x, attn = attn_layer(x, attn_mask=attn_mask)
+                
                 x = conv_layer(x)
                 attns.append(attn)
             x, attn = self.attn_layers[-1](x, attn_mask=attn_mask)

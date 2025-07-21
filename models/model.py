@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import ipdb
 
 # from utils.masking import TriangularCausalMask, ProbMask
 from .encoder import Encoder, EncoderLayer, ConvLayer, EncoderStack
@@ -14,12 +15,10 @@ from .embed import DataEmbedding
 class Informer(nn.Module):
     def __init__(
         self,
-        enc_in,
-        dec_in,
-        c_out,
-        seq_len,
-        label_len,
-        out_len,
+        enc_in=1,
+        dec_in=1,
+        c_out=1,
+        out_len=1000,
         factor=5,
         d_model=512,
         n_heads=8,
@@ -29,12 +28,12 @@ class Informer(nn.Module):
         dropout=0.0,
         attn="prob",
         embed="fixed",
-        freq="h",
+        freq="t",
         activation="gelu",
         output_attention=False,
         distil=True,
         mix=True,
-        device=torch.device("cuda:0"),
+        max_len=50000,
     ):
         super(Informer, self).__init__()
         self.pred_len = out_len
@@ -43,10 +42,20 @@ class Informer(nn.Module):
 
         # Encoding
         self.enc_embedding = DataEmbedding(
-            c_in=enc_in, d_model=d_model, embed_type=embed, freq=freq, dropout=dropout
+            c_in=enc_in,
+            d_model=d_model,
+            max_len=max_len,
+            embed_type=embed,
+            freq=freq,
+            dropout=dropout,
         )
         self.dec_embedding = DataEmbedding(
-            c_in=enc_in, d_model=d_model, embed_type=embed, freq=freq, dropout=dropout
+            c_in=dec_in,
+            d_model=d_model,
+            max_len=max_len,
+            embed_type=embed,
+            freq=freq,
+            dropout=dropout,
         )
         # Attention
         Attn = ProbAttention if attn == "prob" else FullAttention
@@ -124,14 +133,16 @@ class Informer(nn.Module):
         dec_self_mask=None,
         dec_enc_mask=None,
     ):
-        enc_out = self.enc_embedding(x_enc, x_mark_enc)
-        enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
+        enc_out = self.enc_embedding(x_enc, x_mark_enc)  # (B,L,D) -> (B,L,H)
+        enc_out, attns = self.encoder(
+            enc_out, attn_mask=enc_self_mask
+        )  # (B,L,H) → (B,L,H)
 
-        dec_out = self.dec_embedding(x_dec, x_mark_dec)
+        dec_out = self.dec_embedding(x_dec, x_mark_dec)  # (B,L,K) → (B,L,H)
         dec_out = self.decoder(
             dec_out, enc_out, x_mask=dec_self_mask, cross_mask=dec_enc_mask
-        )
-        dec_out = self.projection(dec_out)
+        )  # (B,L,H) → (B,L,H)
+        dec_out = self.projection(dec_out)  # (B,L,H) → (B,K,1)
 
         # dec_out = self.end_conv1(dec_out)
         # dec_out = self.end_conv2(dec_out.transpose(2,1)).transpose(1,2)

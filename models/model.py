@@ -8,6 +8,8 @@ from .decoder import Decoder, DecoderLayer
 from .attn import FullAttention, ProbAttention, AttentionLayer
 from .embed import DataEmbedding
 
+# NOTE: Complete Informer model
+
 
 class Informer(nn.Module):
     def __init__(
